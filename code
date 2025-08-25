@@ -1,0 +1,51 @@
+const int TRIG  = 9;
+const int ECHO  = 10;
+const int MOTOR = 6;
+
+// turn ON when hand is closer than ON_CM; turn OFF when farther than OFF_CM
+const int ON_CM  = 30;
+const int OFF_CM = 40;   // OFF should be > ON (hysteresis)
+
+long readCM() {
+  // 10 µs trigger pulse
+  digitalWrite(TRIG, LOW);  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH); delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  // up to ~4 m timeout; returns 0 on timeout
+  unsigned long us = pulseIn(ECHO, HIGH, 25000UL);
+  if (us == 0) return -1;         // no echo / out of range
+  return (long)(us / 58);         // µs → cm
+}
+
+void setup() {
+  pinMode(TRIG,  OUTPUT);
+  pinMode(ECHO,  INPUT);
+  pinMode(MOTOR, OUTPUT);
+  analogWrite(MOTOR, 0);
+  Serial.begin(9600);
+}
+
+void loop() {
+  static bool motorOn = false;
+
+  long d = readCM();
+  if (d > 0) {
+    Serial.print("distance(cm): ");
+    Serial.println(d);
+  } else {
+    Serial.println("No echo");
+  }
+
+  // Hysteresis: ON when near, OFF when far
+  if (!motorOn && d > 0 && d <= ON_CM) {
+    motorOn = true;
+    analogWrite(MOTOR, 255);   // or digitalWrite(MOTOR, HIGH);
+  } 
+  else if (motorOn && (d == -1 || d >= OFF_CM)) {
+    motorOn = false;
+    analogWrite(MOTOR, 0);     // or digitalWrite(MOTOR, LOW);
+  }
+
+  delay(60);
+}
